@@ -182,8 +182,11 @@ def schc_fragmenter_recv(s, sched, factory, opt):
                 debug_print(1, ret, ":", tx_obj)
 
         except Exception as e:
-            debug_print(1, "Exception: [%s]" % repr(e))
-            sys.print_exception(e)
+            if "timeout" in repr(e):
+                debug_print(1, "timed out:", repr(e))
+            else:
+                debug_print(1, "Exception: [%s]" % repr(e))
+                sys.print_exception(e)
 
 #---------------------------------------------------------------------------
 
