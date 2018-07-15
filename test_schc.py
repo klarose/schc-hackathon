@@ -182,13 +182,13 @@ def schc_fragmenter_recv(s, sched, factory, opt):
 
 #---------------------------------------------------------------------------
 
-def do_fragmenter_send(packet_str, opt):
+def do_fragmenter_send(packet_str, sender, opt):
     global frr, impl_name
     frdb = schc_fragment_ruledb()
     if opt.context_file != None:
         assert opt.rule_file != None
         cid = frdb.load_context_json_file(opt.context_file)
-        rid = frdb.load_json_file(cid, opt.rule_file)        
+        rid = frdb.load_json_file(cid, opt.rule_file)
     else:
         cid = frdb.load_context_json_str(opt.context_json)
         rid = frdb.load_json_str(cid, opt.rule_json)
@@ -197,11 +197,11 @@ def do_fragmenter_send(packet_str, opt):
     if impl_name == "micropython":
         packet = bytearray(packet_str)
     else: packet = bytearray(packet_str, "utf-8")
-
-    sd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    address = get_sockaddr(SEND_UDP_ADDRESS, SEND_UDP_PORT)
-    sd.bind(address)
-    schc_fragmenter_send(packet, sd, opt)
+    if not sender:
+        sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        address = get_sockaddr(SEND_UDP_ADDRESS, SEND_UDP_PORT)
+        sender.bind(address)
+    schc_fragmenter_send(packet, sender, opt)
 
 
 def do_fragmenter_recv(opt):
@@ -284,9 +284,9 @@ print("Python implementation: %s" % sys.implementation)
 debug_set_level(2)
 
 
-def send():
+def send(sender = None):
     packet = "0123456789" + "".join([chr(ord('A')+i) for i in range(26)])
-    do_fragmenter_send(packet, opt)
+    do_fragmenter_send(packet, sender, opt)
     send_ran = True
 def recv():
     do_fragmenter_recv(opt)
