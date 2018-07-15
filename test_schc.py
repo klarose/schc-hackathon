@@ -108,7 +108,7 @@ def schc_fragmenter_send(msg, s, opt):
                     debug_print(1, "timed out to wait for the ack.")
                 else:
                     debug_print(1, "Exception: [%s]" % repr(e))
-
+                    debug_print(0, traceback.format_exc())
 
         time.sleep(opt.interval)
 
@@ -124,13 +124,17 @@ def schc_fragmenter_recv(s, sched, factory, opt):
         if not timer:
             s.setblocking(True)
         else:
-            # Wait for some data first
-            poller = select.poll()
-            poller.register(s, select.POLLIN)
-            res = poller.poll(int(timer * 1000)) # timer is in seconds
-            if not res:
-                debug_print(1, "timed out")
-                return
+            settimeout = getattr(s, "settimeout", None)
+            if callable(settimeout):
+                s.settimeout(int(timer))
+            else:
+                # Wait for some data first
+                poller = select.poll()
+                poller.register(s, select.POLLIN)
+                res = poller.poll(int(timer * 1000)) # timer is in seconds
+                if not res:
+                    debug_print(1, "timed out")
+                    return
 
         # find a message for which a sender has sent all-1.
         for i in factory.dig():
@@ -205,7 +209,7 @@ def do_fragmenter_send(packet_str, sender, opt):
     schc_fragmenter_send(packet, sender, opt)
 
 
-def do_fragmenter_recv(opt):
+def do_fragmenter_recv(opt, receiver):
     global cid
     sched = ps.ssched()
     factory = sfr.defragment_factory(scheduler=sched,
@@ -222,13 +226,16 @@ def do_fragmenter_recv(opt):
     else:
         cid = factory.set_context_json_str(opt.context_json)
         factory.set_rule_json_str(cid, [opt.rule_json])
-    server = (RECV_UDP_ADDRESS, RECV_UDP_PORT)
-    debug_print(1, "server:", server)
-    sd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    address = get_sockaddr(*server)
-    sd.bind(address)
 
-    schc_fragmenter_recv(sd, sched, factory, opt)
+    if not receiver:
+        server = (RECV_UDP_ADDRESS, RECV_UDP_PORT)
+        debug_print(1, "server:", server)
+        sd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        address = get_sockaddr(*server)
+        sd.bind(address)
+        receiver = sd
+
+    schc_fragmenter_recv(receiver, sched, factory, opt)
 
 #---------------------------------------------------------------------------
 # Options
@@ -289,8 +296,8 @@ def send(sender = None):
     packet = "0123456789" + "".join([chr(ord('A')+i) for i in range(26)])
     do_fragmenter_send(packet, sender, opt)
     send_ran = True
-def recv():
-    do_fragmenter_recv(opt)
+def recv(receiver = None):
+    do_fragmenter_recv(opt, receiver)
     recv_ran = True
 
 def send_recv():
@@ -301,7 +308,7 @@ def send_recv():
     send_thread = _thread.start_new_thread(send, ())
 
     while not recv_ran or not send_ran:
-        time.sleep_ms(100)
+        time.sleep(1)
 
 
 def run(*argv):
