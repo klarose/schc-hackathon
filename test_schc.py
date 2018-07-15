@@ -108,7 +108,7 @@ def schc_fragmenter_send(msg, s, opt):
                     debug_print(1, "timed out to wait for the ack.")
                 else:
                     debug_print(1, "Exception: [%s]" % repr(e))
-                    debug_print(0, traceback.format_exc())
+
 
         time.sleep(opt.interval)
 
@@ -130,6 +130,7 @@ def schc_fragmenter_recv(s, sched, factory, opt):
             res = poller.poll(int(timer * 1000)) # timer is in seconds
             if not res:
                 debug_print(1, "timed out")
+                return
 
         # find a message for which a sender has sent all-1.
         for i in factory.dig():
